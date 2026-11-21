@@ -1,0 +1,14 @@
+[0:v]zoompan=z='min(zoom+0.0005,1.05)':d=120:s=1080x1920:fps=30,setsar=1[v0];
+[1:v]zoompan=z='min(zoom+0.0005,1.05)':d=120:s=1080x1920:fps=30,setsar=1[v1];
+[2:v]zoompan=z='min(zoom+0.0005,1.05)':d=120:s=1080x1920:fps=30,setsar=1[v2];
+[3:v]zoompan=z='min(zoom+0.0005,1.05)':d=120:s=1080x1920:fps=30,setsar=1[v3];
+[v0][v1]xfade=transition=fade:duration=0.4:offset=3.6[x1];
+[x1][v2]xfade=transition=fade:duration=0.4:offset=7.6[x2];
+[x2][v3]xfade=transition=fade:duration=0.4:offset=11.6[content];
+[content]format=yuva420p,fps=60,split[clip][soft];
+[soft]gblur=sigma=28,eq=saturation=0.35,fade=t=in:st=16.0:d=0.8:alpha=1[soft];
+[clip][soft]overlay[bg];
+[4:v]format=rgba[badge];
+[bg][badge]overlay=enable='between(t,0,16)'[bg2];
+[5:v]format=yuva420p,setpts=PTS-STARTPTS+16/TB[card];
+[bg2][card]overlay=eof_action=pass,drawbox=x=208:y=1230:w=9:h=82:color=white:t=fill:enable='gte(t,17.433)',drawtext=fontfile=JetBrainsMono-Bold.ttf:text='h6y3kbkw':fontsize=62:fontcolor=0x191419:x=210:y=1271-(ascent-descent)/2:enable='gte(t,17.433)'[v]
