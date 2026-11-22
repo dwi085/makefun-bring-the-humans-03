@@ -1,59 +1,71 @@
-// main.ts — bring-the-humans-03 entrypoint (Node 22, stdlib only).
-// Copies VIDEO.json from the repository root into the output directory
-// so the grader can read the submitted TikTok video address.
+#!/usr/bin/env node
+// bring-the-humans-03 entrypoint: copy VIDEO.json to the output directory.
+//
+// The grader runs this file as `node /bot/main.ts` from an arbitrary working
+// directory, so nothing here may depend on process.cwd(). The bot directory
+// comes from MAKEFUN_BOT_DIR (default "/bot") and the output directory from
+// MAKEFUN_OUTPUT_DIR (default "/output").
 
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-} from "node:fs";
-import { join } from "node:path";
+const fs = require("node:fs");
+const path = require("node:path");
 
-// The grader runs this with the repository as the working directory and
-// hands it the output directory through MAKEFUN_OUTPUT_DIR; /output is
-// the default when that variable is not set.
-const repoRoot = process.cwd();
-const outputDir = process.env.MAKEFUN_OUTPUT_DIR || "/output";
-const sourcePath = join(repoRoot, "VIDEO.json");
-const targetPath = join(outputDir, "VIDEO.json");
-
-if (!existsSync(sourcePath)) {
-  console.error(`VIDEO.json not found at ${sourcePath}`);
+function fail(message) {
+  console.error("error: " + message);
   process.exit(1);
 }
 
-const raw = readFileSync(sourcePath, "utf8");
+function main() {
+  const botDir = process.env.MAKEFUN_BOT_DIR || "/bot";
+  const outDir = process.env.MAKEFUN_OUTPUT_DIR || "/output";
+  const srcPath = path.join(botDir, "VIDEO.json");
+  const dstPath = path.join(outDir, "VIDEO.json");
 
-let parsed: unknown;
-try {
-  parsed = JSON.parse(raw);
-} catch {
-  console.error("VIDEO.json is not valid JSON");
-  process.exit(1);
+  let raw;
+  try {
+    raw = fs.readFileSync(srcPath);
+  } catch (err) {
+    fail("cannot read " + srcPath + ": " + err.message);
+  }
+
+  let data;
+  try {
+    data = JSON.parse(raw.toString("utf8"));
+  } catch (err) {
+    fail("VIDEO.json is not valid JSON: " + err.message);
+  }
+
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    fail("VIDEO.json must be a JSON object");
+  }
+
+  if (typeof data.url !== "string" || !data.url.startsWith("https://www.tiktok.com/") || !data.url.includes("/video/")) {
+    fail("VIDEO.json must have a \"url\" string for a TikTok video starting with https://www.tiktok.com/ and containing /video/");
+  }
+
+  try {
+    fs.mkdirSync(outDir, { recursive: true });
+  } catch (err) {
+    fail("cannot create output directory " + outDir + ": " + err.message);
+  }
+
+  try {
+    fs.copyFileSync(srcPath, dstPath);
+  } catch (err) {
+    fail("cannot copy " + srcPath + " to " + dstPath + ": " + err.message);
+  }
+
+  let copied;
+  try {
+    copied = fs.readFileSync(dstPath);
+  } catch (err) {
+    fail("cannot read back " + dstPath + ": " + err.message);
+  }
+
+  if (!raw.equals(copied)) {
+    fail("copied VIDEO.json differs from the original");
+  }
+
+  console.log("copied VIDEO.json to " + dstPath + " (" + data.url + ")");
 }
 
-if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-  console.error("VIDEO.json must be a JSON object with a url field");
-  process.exit(1);
-}
-
-const url = (parsed as Record<string, unknown>).url;
-if (typeof url !== "string" || !url.startsWith("https://www.tiktok.com/")) {
-  console.error("VIDEO.json url must start with https://www.tiktok.com/");
-  process.exit(1);
-}
-
-mkdirSync(outputDir, { recursive: true });
-copyFileSync(sourcePath, targetPath);
-
-// Read the copy back and make sure it landed byte for byte: a silent
-// failed copy would hand the grader an empty or stale /output.
-const written = readFileSync(targetPath, "utf8");
-if (written !== raw) {
-  console.error(`Verification failed: ${targetPath} differs from VIDEO.json`);
-  process.exit(1);
-}
-
-console.log(`Copied VIDEO.json to ${targetPath} (${url})`);
-console.log(`Verified ${targetPath} matches VIDEO.json byte for byte`);
+main();
